@@ -39,7 +39,8 @@ def migrate_data():
                 break
 
             records = [dict(row) for row in rows]
-            postgres_loader.insert_curated_records(records)
+            postgres_loader.insert_daily_prices(records)
+            postgres_loader.insert_dividends(records)
             total_migrated += len(records)
             logger.info(
                 f"Migrated {total_migrated} records to Postgres..."
