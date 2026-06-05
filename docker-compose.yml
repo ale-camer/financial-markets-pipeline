@@ -1,5 +1,3 @@
-version: '3.8'
-
 x-airflow-common: &airflow-common
   build:
     context: .
@@ -13,11 +11,12 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
     AIRFLOW__CORE__LOGGING_LEVEL: 'INFO'
   volumes:
-    - ./dags:/opt/airflow/dags
-    - ./src:/opt/airflow/src
-    - ./tests:/opt/airflow/tests
-    - ./logs:/opt/airflow/logs
-    - ./data:/opt/airflow/data
+    - ./dags:/opt/airflow/dags:z
+    - ./src:/opt/airflow/src:z
+    - ./tests:/opt/airflow/tests:z
+    - ./logs:/opt/airflow/logs:z
+    - ./data:/opt/airflow/data:z
+    - ./pyproject.toml:/opt/airflow/pyproject.toml:ro,z
   user: "50000:0"
   depends_on:
     postgres:
@@ -34,7 +33,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro,z
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]

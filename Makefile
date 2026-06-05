@@ -27,10 +27,10 @@ logs:
 	docker compose logs -f
 
 lint:
-	docker compose run --rm airflow-webserver ruff check src/ dags/
+	docker compose run --rm --entrypoint "" airflow-webserver ruff check src/ dags/
 
 test:
-	docker compose run --rm airflow-webserver pytest tests/
+	docker compose run --rm --entrypoint "" airflow-webserver pytest tests/
 
 shell:
 	docker compose run --rm airflow-webserver bash
@@ -39,4 +39,4 @@ db-airflow:
 	docker compose exec postgres psql -U airflow -d airflow
 
 db-curated:
-	docker compose exec postgres psql -U postgres -d market_data
+	docker compose exec postgres psql -U airflow -d market_data
