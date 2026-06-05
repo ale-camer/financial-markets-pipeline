@@ -98,7 +98,8 @@ def load_to_postgres(logical_date, **kwargs):
             logger.info("No staging records found in SQLite for this date.")
             return
 
-        postgres_loader.insert_curated_records(records)
+        postgres_loader.insert_daily_prices(records)
+        postgres_loader.insert_dividends(records)
         logger.info(
             f"Successfully loaded {len(records)} records to Postgres."
         )
