@@ -12,7 +12,7 @@ USER airflow
 
 # Copy and install python dependencies
 COPY --chown=airflow:root requirements.txt /requirements.txt
-RUN pip install --no-cache-dir --user -r /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
 
 # Add workspace directory to python path
 ENV PYTHONPATH="/opt/airflow:/opt/airflow/src:${PYTHONPATH}"
