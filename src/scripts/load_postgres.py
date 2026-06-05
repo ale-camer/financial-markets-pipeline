@@ -2,6 +2,7 @@ import logging
 
 from src.loaders.db_loader import SQLiteLoader
 from src.loaders.postgres_loader import PostgresLoader
+from src.transformers.data_transformer import DataTransformer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,11 +15,13 @@ def migrate_data():
     """Migrates all records from SQLite staging to Postgres curated."""
     sqlite_loader = SQLiteLoader()
     postgres_loader = PostgresLoader()
+    transformer = DataTransformer()
 
     logger.info("Initializing Postgres tables...")
     postgres_loader.init_tables()
 
     logger.info("Reading data from SQLite staging_prices...")
+    existing_company_ids = postgres_loader.get_existing_company_ids()
     sqlite_conn = sqlite_loader.get_connection()
     cursor = sqlite_conn.cursor()
 
@@ -38,9 +41,19 @@ def migrate_data():
             if not rows:
                 break
 
-            records = [dict(row) for row in rows]
-            postgres_loader.insert_daily_prices(records)
-            postgres_loader.insert_dividends(records)
+            # Enforce referential integrity
+            records = [
+                dict(row) for row in rows
+                if row["ticker"] in existing_company_ids
+            ]
+            if not records:
+                continue
+
+            transformed_prices = transformer.transform_daily_prices(records)
+            transformed_dividends = transformer.transform_dividends(records)
+
+            postgres_loader.insert_daily_prices(transformed_prices)
+            postgres_loader.insert_dividends(transformed_dividends)
             total_migrated += len(records)
             logger.info(
                 f"Migrated {total_migrated} records to Postgres..."

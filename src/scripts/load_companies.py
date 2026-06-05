@@ -10,6 +10,7 @@ from src.extractors.yfinance_extractor import DEFAULT_TICKERS
 from src.loaders.db_loader import SQLiteLoader
 from src.loaders.postgres_loader import PostgresLoader
 from src.models.company_models import AlphaVantageCompanyRecord
+from src.transformers.data_transformer import DataTransformer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,9 +99,19 @@ def process_single_ticker(
         )
         return False, using_fallback
 
+    # Transform using DataTransformer
+    try:
+        transformer = DataTransformer()
+        transformed_company = transformer.transform_company(validated_dict)
+    except Exception as e:
+        logger.error(
+            f"Data transformation failed for {ticker} data: {e}"
+        )
+        return False, using_fallback
+
     # Persist to PostgreSQL dim_companies table
     try:
-        postgres_loader.insert_companies([validated_dict])
+        postgres_loader.insert_companies([transformed_company])
         logger.info(f"Persisted {ticker} to Postgres dim_companies.")
         return True, using_fallback
     except Exception as e:

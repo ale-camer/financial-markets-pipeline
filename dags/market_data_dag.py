@@ -11,6 +11,7 @@ from src.models.price_models import (
     YFinanceExtractionPayload,
     YFinanceOHLCVRecord,
 )
+from src.transformers.data_transformer import DataTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,7 @@ def load_to_postgres(logical_date, **kwargs):
 
     sqlite_loader = SQLiteLoader()
     postgres_loader = PostgresLoader()
+    transformer = DataTransformer()
 
     postgres_loader.init_tables()
 
@@ -92,14 +94,21 @@ def load_to_postgres(logical_date, **kwargs):
             (date_str,),
         )
         rows = cursor.fetchall()
-        records = [dict(row) for row in rows]
+        existing_company_ids = postgres_loader.get_existing_company_ids()
+        records = [
+            dict(row) for row in rows
+            if row["ticker"] in existing_company_ids
+        ]
 
         if not records:
-            logger.info("No staging records found in SQLite for this date.")
+            logger.info("No valid staging records for Postgres migration.")
             return
 
-        postgres_loader.insert_daily_prices(records)
-        postgres_loader.insert_dividends(records)
+        transformed_prices = transformer.transform_daily_prices(records)
+        transformed_dividends = transformer.transform_dividends(records)
+
+        postgres_loader.insert_daily_prices(transformed_prices)
+        postgres_loader.insert_dividends(transformed_dividends)
         logger.info(
             f"Successfully loaded {len(records)} records to Postgres."
         )

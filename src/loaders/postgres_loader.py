@@ -44,20 +44,12 @@ class PostgresLoader:
         data = [
             {
                 "ticker": r["ticker"],
-                "date": (
-                    r["date"]
-                    if isinstance(r["date"], str)
-                    else (
-                        r["date"].isoformat()
-                        if hasattr(r["date"], "isoformat")
-                        else r["date"]
-                    )
-                ),
-                "open": float(r["open"]),
-                "high": float(r["high"]),
-                "low": float(r["low"]),
-                "close": float(r["close"]),
-                "volume": int(r["volume"]),
+                "date": r["date"],
+                "open": r["open"],
+                "high": r["high"],
+                "low": r["low"],
+                "close": r["close"],
+                "volume": r["volume"],
                 "inserted_at": inserted_at,
             }
             for r in records
@@ -89,17 +81,9 @@ class PostgresLoader:
         data = [
             {
                 "ticker": r["ticker"],
-                "date": (
-                    r["date"]
-                    if isinstance(r["date"], str)
-                    else (
-                        r["date"].isoformat()
-                        if hasattr(r["date"], "isoformat")
-                        else r["date"]
-                    )
-                ),
-                "dividends": float(r["dividends"]),
-                "stock_splits": float(r["stock_splits"]),
+                "date": r["date"],
+                "dividends": r["dividends"],
+                "stock_splits": r["stock_splits"],
                 "inserted_at": inserted_at,
             }
             for r in records
@@ -127,7 +111,7 @@ class PostgresLoader:
         updated_at = datetime.utcnow()
         data = [
             {
-                "company_id": c["symbol"].upper(),
+                "company_id": c["company_id"],
                 "name": c["name"],
                 "sector": c["sector"],
                 "industry": c["industry"],
