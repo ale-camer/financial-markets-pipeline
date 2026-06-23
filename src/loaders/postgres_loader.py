@@ -13,7 +13,7 @@ class PostgresLoader:
 
     def __init__(self):
         # Database connection defaults (configured in docker-compose / .env)
-        self.host = "postgres"
+        self.host = os.getenv("CURATED_POSTGRES_HOST", "postgres")
         self.port = int(os.getenv("CURATED_POSTGRES_PORT", 5432))
         self.user = os.getenv("CURATED_POSTGRES_USER", "postgres")
         self.password = os.getenv(
