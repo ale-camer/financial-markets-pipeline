@@ -159,6 +159,15 @@ class YFinanceExtractor:
                 logger.warning(f"No data returned for ticker {ticker}")
                 return []
 
+            # Drop rows with NaN values in core OHLCV columns (e.g., non-trading days/holidays)
+            df = df.dropna(subset=["Open", "High", "Low", "Close"])
+
+            if df.empty:
+                logger.warning(
+                    f"All records for ticker {ticker} were dropped due to NaN values."
+                )
+                return []
+
             records = []
             for idx, row in df.iterrows():
                 date_str = (

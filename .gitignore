@@ -166,3 +166,6 @@ standalone_admin_password.txt
 *.sqlite
 data/*.db
 data/*.sqlite
+
+# Others
+temp.md
