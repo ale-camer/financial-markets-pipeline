@@ -156,14 +156,40 @@ def run_ingestion():
     existing_companies = postgres_loader.get_existing_company_ids()
     logger.info(f"Found {len(existing_companies)} existing companies.")
 
-    # Filter out already loaded companies
-    tickers_to_process = [
-        t for t in tickers if t.upper() not in existing_companies
+    # Identify companies loaded via yfinance_fallback that we want to retry with Alpha Vantage
+    sqlite_conn = sqlite_loader.get_connection()
+    fallback_tickers = set()
+    try:
+        cursor = sqlite_conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT ticker 
+              FROM raw_data 
+             WHERE source = 'yfinance_fallback' 
+               AND ticker NOT IN (SELECT ticker FROM raw_data WHERE source = 'alpha_vantage')
+            """
+        )
+        fallback_tickers = {row[0].upper() for row in cursor.fetchall()}
+    except Exception as e:
+        logger.warning(f"Failed to query fallback tickers: {e}")
+    finally:
+        sqlite_conn.close()
+
+    new_tickers = [t for t in tickers if t.upper() not in existing_companies]
+    fallback_to_retry = [
+        t for t in tickers 
+        if t.upper() in existing_companies and t.upper() in fallback_tickers
     ]
 
+    tickers_to_process = new_tickers + fallback_to_retry
+
     if not tickers_to_process:
-        logger.info("All selected tickers are already loaded. Exiting.")
+        logger.info("All selected tickers are already loaded and up-to-date. Exiting.")
         return
+
+    logger.info(
+        f"Found {len(new_tickers)} new tickers and {len(fallback_to_retry)} fallback tickers to retry."
+    )
 
     if args.limit:
         tickers_to_process = tickers_to_process[: args.limit]

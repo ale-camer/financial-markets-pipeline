@@ -59,6 +59,7 @@ def main():
 
     extracted_at = datetime.utcnow()
 
+    import time
     for idx, ticker in enumerate(tickers, start=1):
         logger.info(
             f"[{idx}/{len(tickers)}] Fetching {ticker}..."
@@ -73,6 +74,8 @@ def main():
                 logger.warning(
                     f"No records found for {ticker}."
                 )
+                if idx < len(tickers):
+                    time.sleep(0.5)
                 continue
 
             # Ingest raw payload
@@ -97,6 +100,9 @@ def main():
             logger.error(
                 f"Failed to backfill ticker {ticker}: {e}"
             )
+        
+        if idx < len(tickers):
+            time.sleep(0.5)
 
     logger.info("Backfill process finished.")
 

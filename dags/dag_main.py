@@ -45,12 +45,40 @@ def ingest_company_metadata():
     yfinance_extractor = YFinanceExtractor()
     tickers = yfinance_extractor.tickers
 
-    tickers_to_process = [t for t in tickers if t.upper() not in existing_companies]
+    # Query fallback tickers from SQLite
+    sqlite_conn = sqlite_loader.get_connection()
+    fallback_tickers = set()
+    try:
+        cursor = sqlite_conn.cursor()
+        cursor.execute(
+            """
+            SELECT DISTINCT ticker 
+              FROM raw_data 
+             WHERE source = 'yfinance_fallback' 
+               AND ticker NOT IN (SELECT ticker FROM raw_data WHERE source = 'alpha_vantage')
+            """
+        )
+        fallback_tickers = {row[0].upper() for row in cursor.fetchall()}
+    except Exception as e:
+        logger.warning(f"Failed to query fallback tickers from SQLite: {e}")
+    finally:
+        sqlite_conn.close()
+
+    new_tickers = [t for t in tickers if t.upper() not in existing_companies]
+    fallback_to_retry = [
+        t for t in tickers 
+        if t.upper() in existing_companies and t.upper() in fallback_tickers
+    ]
+
+    tickers_to_process = new_tickers + fallback_to_retry
     if not tickers_to_process:
-        logger.info("All company metadata already ingested.")
+        logger.info("All company metadata already ingested and up-to-date.")
         return
 
-    logger.info(f"Ingesting metadata for: {tickers_to_process}")
+    logger.info(
+        f"Found {len(new_tickers)} new tickers and {len(fallback_to_retry)} fallback tickers to retry."
+    )
+    logger.info(f"Ingesting metadata for up to 5 tickers from: {tickers_to_process}")
     # Process up to 5 tickers per run to avoid rate limits (Alpha Vantage free tier is 5 calls/min)
     import time
     for i, ticker in enumerate(tickers_to_process[:5]):
@@ -91,7 +119,8 @@ def extract_and_stage_daily_prices():
 
     logger.info(f"Fetching data from {start_str} to {end_str} for tickers: {tickers}")
 
-    for ticker in tickers:
+    import time
+    for i, ticker in enumerate(tickers):
         try:
             records = extractor.fetch_ohlcv(
                 ticker=ticker,
@@ -100,6 +129,9 @@ def extract_and_stage_daily_prices():
             )
             if not records:
                 logger.warning(f"No records found for ticker {ticker}")
+                # We still sleep to maintain constant rate limit spacing
+                if i < len(tickers) - 1:
+                    time.sleep(0.5)
                 continue
 
             # Ingest raw payload
@@ -120,7 +152,10 @@ def extract_and_stage_daily_prices():
             logger.info(f"Successfully staged {len(records)} records for {ticker}")
         except Exception as e:
             logger.error(f"Error staging daily prices for {ticker}: {e}")
-            raise
+            # Do not raise to allow other tickers to continue
+        
+        if i < len(tickers) - 1:
+            time.sleep(0.5)
 
 
 def transform_and_load_curated():
@@ -182,7 +217,7 @@ with DAG(
     "financial_market_daily_pipeline",
     default_args=default_args,
     description="Daily pipeline to ingest, validate, transform, and load financial market data",
-    schedule_interval="@daily",
+    schedule="@daily",
     start_date=datetime(2026, 6, 1),
     catchup=False,
     tags=["finance", "etl"],
