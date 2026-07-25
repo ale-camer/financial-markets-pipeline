@@ -8,6 +8,7 @@ from airflow.operators.python import PythonOperator
 from src.extractors.alpha_vantage_extractor import AlphaVantageExtractor
 from src.extractors.yfinance_extractor import YFinanceExtractor
 from src.loaders.db_loader import SQLiteLoader
+from src.loaders.gcs_loader import GCSLoader
 from src.loaders.postgres_loader import PostgresLoader
 from src.models.price_models import (
     YFinanceExtractionPayload,
@@ -105,6 +106,13 @@ def extract_and_stage_daily_prices():
     logger.info("Starting daily prices extraction...")
     extractor = YFinanceExtractor()
     loader = SQLiteLoader()
+    import os
+    gcs_loader = None
+    try:
+        gcs_bucket = os.getenv("GCS_BUCKET_NAME", "financial-markets-raw-archive")
+        gcs_loader = GCSLoader(bucket_name=gcs_bucket)
+    except Exception as e:
+        logger.warning(f"GCS not available, skipping archive uploads: {e}")
     
     loader.init_tables()
 
@@ -133,6 +141,14 @@ def extract_and_stage_daily_prices():
                 if i < len(tickers) - 1:
                     time.sleep(0.5)
                 continue
+
+            # Optional: Upload to GCS
+            if gcs_loader is not None:
+                try:
+                    file_name = f"raw_data/yfinance/{ticker}/{extracted_at.strftime('%Y%m%d_%H%M%S')}_payload.json"
+                    gcs_loader.upload_raw_payload(file_name, records)
+                except Exception as e:
+                    logger.warning(f"Optional GCS upload failed for {ticker}: {e}")
 
             # Ingest raw payload
             loader.insert_raw_payload(
