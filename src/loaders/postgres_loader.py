@@ -12,22 +12,27 @@ class PostgresLoader:
     """Manages connection, table creation, and bulk upserts in Postgres."""
 
     def __init__(self):
-        # Database connection defaults (configured in docker-compose / .env)
-        self.host = os.getenv("CURATED_POSTGRES_HOST", "postgres")
-        self.port = int(os.getenv("CURATED_POSTGRES_PORT", 5432))
-        self.user = os.getenv("CURATED_POSTGRES_USER", "postgres")
-        self.password = os.getenv(
-            "CURATED_POSTGRES_PASSWORD", "postgres_secure_pass"
-        )
-        self.database = os.getenv(
-            "CURATED_POSTGRES_DB", "market_data"
-        )
-
-        # Build SQLAlchemy engine and session factory
-        self.db_url = (
-            f"postgresql+psycopg2://{self.user}:{self.password}@"
-            f"{self.host}:{self.port}/{self.database}"
-        )
+        # Database connection: prioritize DATABASE_URL if present, otherwise build from parts
+        env_db_url = os.getenv("DATABASE_URL")
+        if env_db_url:
+            if env_db_url.startswith("postgresql://"):
+                self.db_url = env_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+            else:
+                self.db_url = env_db_url
+        else:
+            self.host = os.getenv("CURATED_POSTGRES_HOST", "postgres")
+            self.port = int(os.getenv("CURATED_POSTGRES_PORT", 5432))
+            self.user = os.getenv("CURATED_POSTGRES_USER", "postgres")
+            self.password = os.getenv(
+                "CURATED_POSTGRES_PASSWORD", "postgres_secure_pass"
+            )
+            self.database = os.getenv(
+                "CURATED_POSTGRES_DB", "market_data"
+            )
+            self.db_url = (
+                f"postgresql+psycopg2://{self.user}:{self.password}@"
+                f"{self.host}:{self.port}/{self.database}"
+            )
         self.engine = create_engine(self.db_url)
         self.SessionLocal = sessionmaker(bind=self.engine)
 

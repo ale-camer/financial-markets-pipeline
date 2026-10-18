@@ -10,9 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 USER airflow
 
-# Copy and install python dependencies
+# Copy and install python dependencies (cached layer)
 COPY --chown=airflow:root requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
+
+# Copy source code and DAGs after dependencies (fast layer)
+COPY --chown=airflow:root src/ /opt/airflow/src/
+COPY --chown=airflow:root dags/ /opt/airflow/dags/
 
 # Add workspace directory to python path
 ENV PYTHONPATH="/opt/airflow:/opt/airflow/src:${PYTHONPATH}"
